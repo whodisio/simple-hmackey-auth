@@ -2,7 +2,7 @@
   "name": "simple-hmackey-auth",
   "author": "whodis",
   "description": "A simple, convenient, and safe interface for using the HMAC Key pattern of authentication and authorization",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "repository": "whodis/simple-hmackey-auth",
   "homepage": "https://github.com/whodis/simple-hmackey-auth",
   "keywords": [
