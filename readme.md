@@ -21,25 +21,25 @@ In otherwords, it's built to provide [a pit of success](https://blog.codinghorro
 
 HMAC Key authentication is a great way to implement authentication and authorization for SDK applications
 
-Using HMAC to sign requests increases the security of api-key authentication by ensuring that the `client-private-key` is not exposed through usage and that requests can't be replayed
-- only the owner of the `client-private-key` can make requests against the server (blocks replay attacks)
-- the `client-private-key` can not be leaked through usage, since it is never sent on the requests
+HMAC Key authentication provides us the following guarantees on authenticated requests
+- request integrity: the data sent by the client to the server has not tampered with
+- request origination: the request comes to the server from a trusted client
+- request originality: the request was not captured by an intruder and being replayed
 
 Well known examples of this pattern in production:
 - [AWS](http://s3.amazonaws.com/doc/s3-developer-guide/RESTAuthentication.html)
 - [Twilio](https://www.twilio.com/docs/usage/security#validating-requests)
 - [Google](https://cloud.google.com/storage/docs/authentication/hmackeys)
 
-
 References:
 - [HMAC: Keyed-Hashing for Message Authentication](https://www.rfc-editor.org/rfc/rfc2104)
 - [What is HMAC Authentication and why is it useful?](https://www.wolfe.id.au/2012/10/20/what-is-hmac-authentication-and-why-is-it-useful/)
 - [API Security: HMAC+Key vs JWT](https://softwareengineering.stackexchange.com/questions/297417/rest-api-security-hmac-key-hashing-vs-jwt)
 - [HMAC](https://en.wikipedia.org/wiki/HMAC)
+- [How and when do I use HMAC?](https://security.stackexchange.com/questions/20129/how-and-when-do-i-use-hmac)
 
 
 Note: if you're looking to implement authentication and authorization for user facing applications, [JSON Web Tokens (JWTs)](https://github.com/whodisio/simple-jwt-auth) may be a better fit due to their [stateless and decentralized](https://softwareengineering.stackexchange.com/a/444092/146747) nature
-
 
 ---
 
@@ -82,57 +82,41 @@ const {
 } = await issueClientKeyPair();
 ```
 
-### Create an auth request signature
+### Create a secure request signature
 
 Creates a request signature that can be securely authed by the issuer. Useful any time you need to make an authable request (e.g., client side)
 
-```ts
-import { createRequestSignature } from 'simple-hmackey-auth';
-
-const signature = await createRequestSignature({
-  clientPrivateKey,
-  request: {
-    host: 'https://your.domain.com',
-    endpoint: '/your/endpoint/...',
-    headers,
-    body,
-  },
-});
-```
-
-
-### Create authorization header
-
-Creates an [authorization header](https://tools.ietf.org/html/rfc6750) which encodes all the data required by the issuer to auth the request, which you can add to your requests.
+Make sure to include any data that affects the outcome of the request in the request input to this function. The signature only ensures the integrity of the request data you told it about.
 
 ```ts
-import { createAuthableAuthorizationHeader } from 'simple-hmackey-auth';
+import { createSecureRequestSignature } from 'simple-hmackey-auth';
 
-const { authorization } = await createAuthorizationHeader({
+const signature = await createSecureRequestSignature({
   clientPublicKey,
   clientPrivateKey,
   request: {
     host: 'https://your.domain.com',
     endpoint: '/your/endpoint/...',
     headers,
-    body,
+    payload,
   },
 });
 ```
 
-To send authenticated requests, simply add that header to your requests.
+### Assert request signature is authentic
 
+Checks whether the signature was authentic via request origination and request integrity. Useful any time you need to make sure the request was authentic (e.g., server side)
 
-### Assert authentic request signature
-
-Checks whether the signature was authentic, from this client and for this request. Useful any time you need to make sure the request was authentic (e.g., server side)
+Make sure to include any data that affects the outcome of the request in the request input to this function. The signature only ensures the integrity of the request data you told it about.
 
 ```ts
-import { assertAuthenticRequestSignature } from 'simple-hmackey-auth';
+import { assertRequestSignatureAuthenticity } from 'simple-hmackey-auth';
 
-await assertAuthenticRequestSignature({
+await assertRequestSignatureAuthenticity({
   signature,
   getClientPrivateKeyHash: async ({ clientPublicKey }) => {/** a method you define to lookup the private key hash from your database using the public key */},
+  setOriginalUsageOfNonce: async ({ nonce }) => {/** a method you define to record the first usage of the nonce and throw an error if it has already been used to stop replay attacks */}
+  millisUntilExpiration: 5 * 60 * 1000, // the number of milliseconds allowed to elapse from the time the request was sent before we reject it to stop replay attacks
   request: {
     host: 'https://your.domain.com',
     endpoint: '/your/endpoint/...,
@@ -141,8 +125,6 @@ await assertAuthenticRequestSignature({
   },
 });
 ```
-
-Note: throws an `UnauthenticRequestSignature` error if the request was not authentic and explains what was unauthentic about it in the error message.
 
 ### Get signature from headers
 
@@ -158,44 +140,62 @@ Request signatures are typically passed to apis through the `Authorization` head
 
 # Docs
 
-### `fn:assertAuthenticRequestSignature({ signature: string, clientPublicKey: string, clientPrivateKeyHash: string | null, request: SignableRequest })`
+### `fn:assertRequestSignatureAuthenticity({ signature: string, getClientPrivateKeyHash: ({ clientPublicKey }) => Promise<string>, request: SignableRequest })`
 
 Use this function when you want to authenticate a request that was made to you.
 
 We check the authenticity of the request in the following ways:
+- request integrity
+  - by verifying the signature against the request data, we prove that the data was not tampered with
+- request origination
+  - by verifying the signature against the shared secret's hash, we prove that the owner of the client-private-key made the request
+  - by verifying the client-public-key identifies a client-secret-key-hash in your database, we prove that you issued the key used to sign the request and that you were the intended audience for the request
+- request originality
+  - by verifying the nonce has not already been seen for a request, we prove that this is the original request and not a replay attack
+  - by verifying the millis-since-epoch of the request is recent enough, we add another mechanism of preventing replay attacks
 
-- the signature is valid
-  - by verifying the signature
-    - check that we can verify the signature comes from the identified client, with the public key
-    - check that the request header and payload have not been tampered with, with the signature
-    - check that the token uses an asymmetric signing key, for secure decentralized authentication
-  - by verifying the timestamps
-    - check that the request was not possibly a replay or delay attack, for secure authentication
-  - by verifying the nonce
-    - check that the request was not a replay attack, for secure authentication
-- the signing key is valid
-  - by getting a client-private-key-hash for the client-public-key
-    - checks implicitly that you did issue this keypair, since it was in your database, ensuring only keys you issued can be used to sign requests
-    - checks implicitly that the key is not expired, since it was not removed from the database ⚠️, ensuring only active keys can be used to sign requests
+This method will throw errors in the following cases
+- an `UnauthableRequestSignatureError` is thrown if the request signature does not have the data required to check for authenticity
+- an `UnauthenticRequestSignatureError` is thrown if we have successfully checked the request signature and found that the request is unauthentic
+
 
 Example:
 
 ```ts
-import { assertAuthenticRequestSignature } from 'simple-hmackey-auth';
-const claims = assertAuthenticRequestSignature({
+import { assertRequestSignatureAuthenticity } from 'simple-hmackey-auth';a
+
+const claims = assertRequestSignatureAuthenticity({
   /**
    * the request signature you're checking the request for authenticity against
    */
-  signature,
+  signature: string;
 
   /**
    * a method you define which can lookup the client-private-key-hash using the client-public-key
    */
-  getRequestSignatureFromHeaders,
+  getClientPrivateKeyHash: ({}: { clientPublicKey: string }) => Promise<string>;
+
+  /**
+   * a method you define which records that a nonce has been used and throws an error if this is not the first time
+   *
+   * note
+   * - if you choose to not define this method, your api will be vulnerable to replay attacks up to the millisUntilExpiration duration
+   * - if your function does not correctly assert that the nonce has not been used before, your api will be vulnerable to replay attacks up to the millisUntilExpiration duration
+   */
+  setOriginalUsageOfNonce: ({}: { nonce: string }) => Promise<void>;
+
+  /**
+   * the number of milliseconds that could have passed since the timestamp on the request until we decide the request is expired
+   *
+   * note
+   * - the longer this duration is, the more opportunity an attacker has to replay a request
+   * - the default duration is 5 minutes
+   */
+  millisUntilExpiration: number;
 
   /**
    * the request we will be checking against the signature to check it was not tampered with
    */
-  request,
+  request: SimpleSignableRequest;
 });
 ```
