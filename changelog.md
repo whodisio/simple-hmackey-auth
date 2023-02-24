@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/whodisio/simple-hmackey-auth/compare/v1.0.1...v1.0.2) (2023-02-24)
+
+
+### Bug Fixes
+
+* **pkg:** ensure main index points to correct path ([9fc52b1](https://github.com/whodisio/simple-hmackey-auth/commit/9fc52b165fc0323d7a136a9342e76ebacc70953d))
+
 ## [1.0.1](https://github.com/whodisio/simple-hmackey-auth/compare/v1.0.0...v1.0.1) (2023-02-24)
 
 
