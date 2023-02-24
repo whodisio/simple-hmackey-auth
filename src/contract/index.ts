@@ -2,6 +2,7 @@
 export { assertRequestSignatureAuthenticity } from '../logic/signatures/assertRequestSignatureAuthenticity';
 export { createSecureRequestSignature } from '../logic/signatures/createSecureRequestSignature';
 export { getRequestSignatureFromHeaders } from '../logic/headers/getRequestSignatureFromHeaders';
+export { issueClientKeyPair } from '../logic/keys/issueClientKeyPair';
 
 // errors
 export { UnauthenticRequestSignatureError } from '../utils/errors/UnauthenticRequestSignatureError';
