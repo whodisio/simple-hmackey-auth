@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/whodisio/simple-hmackey-auth/compare/v1.0.0...v1.0.1) (2023-02-24)
+
+
+### Bug Fixes
+
+* **contract:** expose the issueClientKeyPair method ([0f3a535](https://github.com/whodisio/simple-hmackey-auth/commit/0f3a535728c2a103cbd183aa3322de12edd97f2e))
+
 ## 1.0.0 (2023-02-24)
 
 
