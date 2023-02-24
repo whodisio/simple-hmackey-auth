@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/whodisio/simple-hmackey-auth/compare/v1.0.2...v1.0.3) (2023-02-24)
+
+
+### Bug Fixes
+
+* **contract:** expose two utilities for public use ([4131df2](https://github.com/whodisio/simple-hmackey-auth/commit/4131df20d68508e781abed57a6be49d1b4f8caaf))
+
 ## [1.0.2](https://github.com/whodisio/simple-hmackey-auth/compare/v1.0.1...v1.0.2) (2023-02-24)
 
 
